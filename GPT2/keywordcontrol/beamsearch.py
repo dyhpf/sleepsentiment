@@ -100,7 +100,7 @@ for j in range(50):
     if sentiment not in sentiment_stages:
         continue  # skip invalid sentiment values
 
-    context = [sentiment + " Wir waren in diesem Hotel."]
+    context = [sentiment + " wir haben gestern nicht so gut geschlafen."]
     keywords = eval(df_keywords.loc[j, "keywords"])
     stemmed_keywords = [kw.split('\t')[-1] for kw in tagger.tag_text(keywords, tagonly=True)]
     keyword_vecs = [model_fasttext.get_word_vector(kw) for kw in stemmed_keywords]
