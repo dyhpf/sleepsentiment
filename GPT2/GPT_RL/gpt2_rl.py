@@ -42,10 +42,14 @@ local_classifier_path = "models/sentiment_discriminator_bert_finetuned"
 data_path = "data/train_for_sft.tsv"
 output_path = "models/ppo_gpt2_rl"
 
-# Install needed libraries
-# Run this once manually or use subprocess in code if automation is necessary
-# pip install wandb datasets trl transformers
-# python -m spacy download de_core_news_md
+# Sentiment stages
+sentiment_stages = {
+    0: "[very negative]",
+    1: "[negative]",
+    2: "[neutral]",
+    3: "[positive]",
+    4: "[very positive]"
+}
 
 # Initialize WandB
 wandb.login()
@@ -86,7 +90,7 @@ def collator(data):
 ppo_trainer = PPOTrainer(config, model, model_ref, tokenizer, dataset, data_collator=collator)
 
 # Control tokens
-ctrl = ["[negative]", "[positive]"]
+ctrl = list(sentiment_stages.values())
 ctrl_tokens = {c: tokenizer.encode(c, return_tensors="pt").squeeze().to(device) for c in ctrl}
 
 # Sentiment classifier
@@ -98,18 +102,22 @@ def get_logits(texts):
     for text in texts:
         output = classifier(text)[0]
         score_dict = {item['label']: item['score'] for item in output}
-        negative_score = score_dict.get('NEGATIVE', 0.0)
-        positive_score = score_dict.get('POSITIVE', 0.0)
-        scores_texts.append([negative_score, positive_score])
+        scores = [
+            score_dict.get("very negative", 0.0),
+            score_dict.get("negative", 0.0),
+            score_dict.get("neutral", 0.0),
+            score_dict.get("positive", 0.0),
+            score_dict.get("very positive", 0.0)
+        ]
+        scores_texts.append(scores)
     return scores_texts
 
-def logit_to_reward(logit, task):
+def logit_to_reward(logits, task):
     scores = []
-    for i in range(len(logit)):
-        if task[i] == "[negative]":
-            scores.append(logit[i][0])
-        elif task[i] == "[positive]":
-            scores.append(logit[i][1])
+    for i in range(len(logits)):
+        target_label = task[i]
+        target_index = list(sentiment_stages.values()).index(target_label)
+        scores.append(logits[i][target_index])
     return [torch.tensor(score, dtype=torch.float32) for score in scores]
 
 # Generation settings
@@ -148,7 +156,7 @@ model_ref.save_pretrained(output_path + "_ref")
 model.save_pretrained(output_path + "_base")
 
 # Inference example
-def generate_example(prompt="[negative]"):
+def generate_example(prompt="[neutral]"):
     tokenizer_test = AutoTokenizer.from_pretrained(output_path)
     model_test = AutoModelWithLMHead.from_pretrained(output_path)
     tokenizer_test.pad_token = tokenizer_test.eos_token_id
