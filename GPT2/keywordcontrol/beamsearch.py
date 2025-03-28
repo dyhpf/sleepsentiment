@@ -16,6 +16,7 @@ from nltk.tokenize import word_tokenize
 import torch.nn.functional as F
 import treetaggerwrapper
 from bertopic import BERTopic
+from sklearn.metrics.pairwise import cosine_similarity
 
 # Setup
 nltk.download('punkt')
@@ -23,6 +24,9 @@ nltk.download('stopwords')
 german_stop_words = set(stopwords.words('german'))
 
 tagger = treetaggerwrapper.TreeTagger(TAGLANG='de', TAGDIR='treetagger/')
+
+# Define sentiment stages
+sentiment_stages = ["[very negative]", "[negative]", "[neutral]", "[positive]", "[very positive]"]
 
 # Load FastText
 model_fasttext = fasttext.load_model("cc.de.300.bin")  # Make sure file is locally available
@@ -50,9 +54,6 @@ tokenizer_perplex = AutoTokenizer.from_pretrained("distilbert-base-german-cased"
 model_perplex = AutoModelWithLMHead.from_pretrained("distilbert-base-german-cased").to("cuda")
 
 # Utility Functions
-def convert_sentiment(text):
-    return 0 if text in ["[negative]", "NEGATIVE"] else 1
-
 def del_stop_words(text):
     words = word_tokenize(text, language='german')
     return ' '.join([w for w in words if w.lower() not in german_stop_words])
@@ -96,6 +97,9 @@ df_beam = pd.DataFrame(columns=["sentiment", "text", "perplexity", "keywords", "
 # Beam Search Generation
 for j in range(50):
     sentiment = df_keywords.loc[j, "sent"]
+    if sentiment not in sentiment_stages:
+        continue  # skip invalid sentiment values
+
     context = [sentiment + " Wir waren in diesem Hotel."]
     keywords = eval(df_keywords.loc[j, "keywords"])
     stemmed_keywords = [kw.split('\t')[-1] for kw in tagger.tag_text(keywords, tagonly=True)]
