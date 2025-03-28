@@ -21,14 +21,19 @@ val_path = "data/val_for_sft.tsv"
 model_save_path = "models/german_gpt2_sft_3_epochs"
 pretrained_model_name = "benjamin/gpt2-wechsel-german"
 
-# Load and prepare data
+# Sentiment mapping for 5 stages
 def sentiment_map(x):
-    return "positive" if x == 1 else "negative"
+    sentiment_dict = {
+        0: "very negative",
+        1: "negative",
+        2: "neutral",
+        3: "positive",
+        4: "very positive"
+    }
+    return sentiment_dict.get(x, "neutral")  # fallback to neutral if unknown
 
+# Format training input as "[sentiment] text"
 def create_instruction(sent, text):
-    """
-    Format training input as "[sentiment] text", truncated to 512 words.
-    """
     text = f"[{sent}] {text}"
     words = text.split()
     return " ".join(words[:512])
@@ -80,8 +85,8 @@ tokenizer = AutoTokenizer.from_pretrained(model_save_path)
 model = AutoModelWithLMHead.from_pretrained(model_save_path)
 tokenizer.pad_token = tokenizer.eos_token
 
-# Example prompt
-prompt_sent = "[negative]: Obwohl ich mir Mühe gegeben habe,"
+# Example prompt using 5-stage sentiment
+prompt_sent = "[very negative]: Obwohl ich mir Mühe gegeben habe,"
 
 # Generation settings
 generation_kwargs = {
@@ -100,4 +105,3 @@ generated_text = tokenizer.decode(output[0], skip_special_tokens=True)
 
 print("Generated Text:")
 print(generated_text)
-
