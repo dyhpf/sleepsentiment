@@ -111,7 +111,7 @@ for i in range(0, 50):
     fasttext_words = [model_fasttext.get_word_vector(k) for k in guide_word_lemma]
     guide_word_lemma_cp, fasttext_words_cp = guide_word_lemma.copy(), fasttext_words.copy()
 
-    context = " Wir waren in diesem Hotel."
+    context = " Wir haben nicht so gut geschlafen."
     guide_next = True
     for j in range(number_of_words_per_sentence):
         if guide_next:
